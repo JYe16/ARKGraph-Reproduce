@@ -2,10 +2,7 @@
 	"artifacts" : 
 	[
 		{
-			"path" : "ARKGraph_Reproduce.exe"
-		},
-		{
-			"path" : "ARKGraph_Reproduce.pdb"
+			"path" : "ARKGraph_Reproduce"
 		}
 	],
 	"backtrace" : 1,
@@ -38,7 +35,7 @@
 			"compileCommandFragments" : 
 			[
 				{
-					"fragment" : "-g -fdiagnostics-color=always"
+					"fragment" : "-g -std=gnu++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.0.sdk -fcolor-diagnostics"
 				}
 			],
 			"language" : "CXX",
@@ -68,16 +65,12 @@
 			{
 				"fragment" : "",
 				"role" : "flags"
-			},
-			{
-				"fragment" : "-lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32",
-				"role" : "libraries"
 			}
 		],
 		"language" : "CXX"
 	},
 	"name" : "ARKGraph_Reproduce",
-	"nameOnDisk" : "ARKGraph_Reproduce.exe",
+	"nameOnDisk" : "ARKGraph_Reproduce",
 	"paths" : 
 	{
 		"build" : ".",
