@@ -27,7 +27,7 @@ int main() {
     vector<vector<float> > raw_data;
     unsigned dim, num;
     load_ivecs_data(data_path, raw_data, num, dim);
-    //raw_data.resize(10);
+//    raw_data.resize(1000);
     vector<vector<int>> bruteForceIndex = buildBruteForceIndex(raw_data, 10);
 
     return 0;
@@ -66,6 +66,7 @@ vector<vector<int>> buildBruteForceIndex(vector<vector<float>> raw_data, int k) 
 
 
     for (int i = 0; i < raw_data.size(); i++) {
+        cout << "Processing " << i << endl;
         vector<pair<int, float>> temp_pairs;
         for (int j = 0; j < raw_data.size(); j++) {
             if (i != j) {
