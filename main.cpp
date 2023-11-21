@@ -55,22 +55,34 @@ int countBruteForceSize(vector<vector<naiveGraph>> G);
 vector<vector<partialRangeGraph>> buildPartialRangeGraph(vector<vector<float>> raw_data, int k);
 
 int main() {
+    int k = 10;
     string data_path = "data/siftsmall_base.fvecs";
     vector<vector<float> > raw_data;
     unsigned dim, num;
     loadData(data_path, raw_data, num, dim);
-    raw_data.resize(1000);
-    vector<vector<naiveGraph>> bruteForceIndex = buildBruteForceIndex(raw_data, 16);
-    cout << "Size: " << countBruteForceSize(bruteForceIndex) << endl;
-    vector<vector<indexGraph>> compactIndex = buildCompactGraph(raw_data, 16);
-    cout << "Size: " << countGraphSize(compactIndex) << endl;
-    vector<vector<partialRangeGraph>> partialRangeIndex = buildPartialRangeGraph(raw_data, 100);
-    int partialIndexSize = 0;
+    raw_data.resize(5000);
+
+    cout << "Program Begin. Data size: " << raw_data.size() << " K: " << k << endl;
+    //vector<vector<naiveGraph>> bruteForceIndex = buildBruteForceIndex(raw_data, k);
+    vector<vector<indexGraph>> compactIndex = buildCompactGraph(raw_data, k);
+    vector<vector<partialRangeGraph>> partialRangeIndex = buildPartialRangeGraph(raw_data, k);
+    int partialRangeNumber = 0;
 
     for (int i = 0; i < partialRangeIndex.size(); i++) {
-        partialIndexSize += partialRangeIndex[i].size();
+        partialRangeNumber += partialRangeIndex[i].size();
     }
-    cout << "Partial Range Size: " << partialIndexSize << endl;
+
+    cout << "Program Finished... Calculating Stats..." << endl;
+
+    //int bruteForceNumber = countBruteForceSize(bruteForceIndex);
+    int compactGraphNumber = countGraphSize(compactIndex);
+
+//    cout << "Brute Force Index Number: " << bruteForceNumber << "\tTotal Size: "
+//         << (bruteForceNumber * (8 + 4 * k)) / (1024.0 * 1024.0) << " MiB" << endl;
+    cout << "Compact Graph Index Number: " << compactGraphNumber << "\tTotal Size: "
+         << (compactGraphNumber * (16 + 4 * k)) / (1024.0 * 1024.0) << " MiB" << endl;
+    cout << "Partial Range Index Number: " << partialRangeNumber << "\tTotal Size: "
+         << (partialRangeNumber * (8 + 4 * k)) / (1024.0 * 1024.0) << " MiB" << endl;
     return 0;
 }
 
@@ -103,10 +115,15 @@ void loadData(const string &filename, vector<vector<float> > &raw_data, unsigned
 
 vector<vector<indexGraph>> buildCompactGraph(vector<vector<float>> raw_data, int k) {
 
+    cout << "Indexing using Compact Graph Approach..." << endl;
+    int indicator = raw_data.size() / 100;
     vector<vector<indexGraph>> G;
     int window;
 
     for (int i = 0; i < raw_data.size(); i++) {
+        if (i % indicator == 0) {
+            cout << "#";
+        }
         vector<pair<int, float>> sortedDistancePairs = calcAndSortDistance(raw_data, raw_data[i], i);
         // declare and initialize L and R
         vector<int> L;
@@ -322,6 +339,7 @@ vector<vector<indexGraph>> buildCompactGraph(vector<vector<float>> raw_data, int
             G.push_back(tempG);
         }
     }
+    cout << "\nFinished..." << endl;
     return G;
 }
 
@@ -343,16 +361,18 @@ vector<pair<int, float>> calcAndSortDistance(vector<vector<float>> raw_data, vec
 
 vector<vector<partialRangeGraph>> buildPartialRangeGraph(vector<vector<float>> raw_data, int k) {
 
+    cout << "Indexing using Partial Range Approach..." << endl;
+    int indicator = raw_data.size() / 100;
     vector<vector<partialRangeGraph>> G;
-    int window;
 
     for (int i = 0; i < raw_data.size(); i++) {
+        if (i % indicator == 0) {
+            cout << "#";
+        }
         vector<pair<int, float>> sortedDistancePairs = calcAndSortDistance(raw_data, raw_data[i], i);
         // declare and initialize L and R
         vector<int> L;
         vector<int> R;
-        vector<int> LR;
-        vector<partialRangeGraph> tempG;
 
         int prevLMin = 0;
         int LMin = 0;
@@ -360,6 +380,7 @@ vector<vector<partialRangeGraph>> buildPartialRangeGraph(vector<vector<float>> r
         int RMax = raw_data.size() + 1;
 
         for (int j = 0; j < sortedDistancePairs.size(); j++) {
+            vector<partialRangeGraph> tempG;
             int j_val = sortedDistancePairs[j].first;
             if (j_val < i) {
                 if (j_val > LMin) {
@@ -404,8 +425,9 @@ vector<vector<partialRangeGraph>> buildPartialRangeGraph(vector<vector<float>> r
                 G.push_back(tempG);
             }
         }
-        return G;
     }
+    cout << "\nFinished..." << endl;
+    return G;
 }
 
 
@@ -438,89 +460,94 @@ vector<vector<partialRangeGraph>> buildPartialRangeGraph(vector<vector<float>> r
 //    return result;
 //}
 
-    vector<vector<naiveGraph>> buildBruteForceIndex(vector<vector<float>> raw_data, int k) {
-        vector<vector<naiveGraph>> result;
-        naiveGraph graph;
+vector<vector<naiveGraph>> buildBruteForceIndex(vector<vector<float>> raw_data, int k) {
+    cout << "Indexing using Brute Force Approach..." << endl;
+    int indicator = raw_data.size() / 100;
+    vector<vector<naiveGraph>> result;
+    naiveGraph graph;
 
-        for (int i = 0; i < raw_data.size(); i++) {
-            vector<float> vi = raw_data[i];
-            vector<naiveGraph> tempGraph;
-            for (int x = 0; x < i; x++) {
-                if (i + 1 < raw_data.size()) {
-                    for (int y = i + 1; y < raw_data.size(); y++) {
-                        if (y - x >= k) {
-                            vector<pair<int, float>> distancePairs = calcAndSortDistance(cutData(raw_data, x, y), vi,
-                                                                                         i);
-                            graph = *new naiveGraph();
-                            graph.b = x;
-                            graph.e = y;
-                            for (int j = 0; j < k; j++) {
-                                graph.C.push_back(distancePairs[j].first);
-                            }
-                            tempGraph.push_back(graph);
+    for (int i = 0; i < raw_data.size(); i++) {
+        if (i % indicator == 0) {
+            cout << "#";
+        }
+        vector<float> vi = raw_data[i];
+        vector<naiveGraph> tempGraph;
+        for (int x = 0; x < i; x++) {
+            if (i + 1 < raw_data.size()) {
+                for (int y = i + 1; y < raw_data.size(); y++) {
+                    if (y - x >= k) {
+                        vector<pair<int, float>> distancePairs = calcAndSortDistance(cutData(raw_data, x, y), vi,
+                                                                                     i);
+                        graph = *new naiveGraph();
+                        graph.b = x;
+                        graph.e = y;
+                        for (int j = 0; j < k; j++) {
+                            graph.C.push_back(distancePairs[j].first);
                         }
+                        tempGraph.push_back(graph);
                     }
                 }
             }
-            result.push_back(tempGraph);
         }
+        result.push_back(tempGraph);
+    }
+    cout << "\nFinished..." << endl;
+    return result;
+}
 
-        return result;
+
+vector<vector<float>> cutData(vector<vector<float>> originalData, int x, int y) {
+    vector<vector<float>> result;
+
+    for (int i = x; i <= y; i++) {
+        result.push_back(originalData[i]);
     }
 
-
-    vector<vector<float>> cutData(vector<vector<float>> originalData, int x, int y) {
-        vector<vector<float>> result;
-
-        for (int i = x; i <= y; i++) {
-            result.push_back(originalData[i]);
-        }
-
-        return result;
-    }
+    return result;
+}
 
 
 // this function is for sorting the key, value pair
-    bool distanceComparison(const pair<int, float> &a, const pair<int, float> &b) {
-        return a.second < b.second;
+bool distanceComparison(const pair<int, float> &a, const pair<int, float> &b) {
+    return a.second < b.second;
+}
+
+
+float calcEuclideanDistance(vector<float> v1, vector<float> v2) {
+    float result = 0.0;
+    for (int i = 0; i < v1.size(); i++) {
+        result += pow((v1[i] - v2[i]), 2);
+    }
+    result = sqrt(result);
+    return result;
+}
+
+vector<int> mergeLR(vector<int> L, vector<int> R, vector<int> LR) {
+    LR.clear();
+
+    for (int i = 0; i < L.size(); i++) {
+        LR.push_back(L[i]);
     }
 
-
-    float calcEuclideanDistance(vector<float> v1, vector<float> v2) {
-        float result = 0.0;
-        for (int i = 0; i < v1.size(); i++) {
-            result += pow((v1[i] - v2[i]), 2);
-        }
-        result = sqrt(result);
-        return result;
+    for (int j = 0; j < R.size(); j++) {
+        LR.push_back(R[j]);
     }
 
-    vector<int> mergeLR(vector<int> L, vector<int> R, vector<int> LR) {
-        LR.clear();
+    return LR;
+}
 
-        for (int i = 0; i < L.size(); i++) {
-            LR.push_back(L[i]);
-        }
-
-        for (int j = 0; j < R.size(); j++) {
-            LR.push_back(R[j]);
-        }
-
-        return LR;
+int countGraphSize(vector<vector<indexGraph>> G) {
+    int result = 0;
+    for (int i = 0; i < G.size(); i++) {
+        result += G[i].size();
     }
+    return result;
+}
 
-    int countGraphSize(vector<vector<indexGraph>> G) {
-        int result = 0;
-        for (int i = 0; i < G.size(); i++) {
-            result += G[i].size();
-        }
-        return result;
+int countBruteForceSize(vector<vector<naiveGraph>> G) {
+    int result = 0;
+    for (int i = 0; i < G.size(); i++) {
+        result += G[i].size();
     }
-
-    int countBruteForceSize(vector<vector<naiveGraph>> G) {
-        int result = 0;
-        for (int i = 0; i < G.size(); i++) {
-            result += G[i].size();
-        }
-        return result;
-    }
+    return result;
+}
