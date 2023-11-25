@@ -9,10 +9,11 @@
 #include "fstream"
 #include <cmath>
 #include <algorithm>
+#include <assert.h>
 
 using namespace std;
 
-struct indexGraph {
+struct compactGraph {
     int bl = 0;
     int br = 0;
     int el = 0;
@@ -32,6 +33,12 @@ struct partialRangeGraph {
     vector<int> C;
 };
 
+struct deltaCompressionGraph {
+    int lMin;
+    int j;
+    vector<int> C;
+};
+
 void loadData(const string &filename, vector<vector<float> > &raw_data, unsigned &num, unsigned &dim);
 
 float calcEuclideanDistance(vector<float> v1, vector<float> v2);
@@ -40,13 +47,13 @@ bool distanceComparison(const pair<int, float> &a, const pair<int, float> &b);
 
 vector<vector<naiveGraph>> buildBruteForceIndex(vector<vector<float>> raw_data, int k);
 
-vector<vector<indexGraph>> buildCompactGraph(vector<vector<float>> raw_data, int k);
+vector<vector<compactGraph>> buildCompactGraph(vector<vector<float>> raw_data, int k);
 
 vector<pair<int, float>> calcAndSortDistance(vector<vector<float>> raw_data, vector<float> vi, int index);
 
 vector<vector<float>> cutData(vector<vector<float>> originalData, int x, int y);
 
-long countGraphSize(vector<vector<indexGraph>> G);
+long countGraphSize(vector<vector<compactGraph>> G);
 
 vector<int> mergeLR(vector<int> L, vector<int> R, vector<int> LR);
 
@@ -58,25 +65,37 @@ void buildPartialRangeGraph(vector<vector<float>> raw_data, int k, vector<vector
 vector<int> buildKNNPartialRange(vector<vector<float>> rawData, vector<vector<partialRangeGraph>> Gb,
                                  vector<vector<partialRangeGraph>> Ge, int x, int y, int i, int k);
 
-vector<int> buildKNNCompactList(vector<vector<indexGraph>> G, int x, int y, int i);
+vector<int> buildKNNCompactList(vector<vector<compactGraph>> G, int x, int y, int i);
 
 vector<int> buildKNNBruteForce(vector<vector<naiveGraph>> G, int x, int y, int i);
 
-vector<pair<int, float>> calcAndSortDistanceBF(vector<vector<float>> raw_data, vector<float> vi, int index, int x, int y);
+vector<pair<int, float>>
+calcAndSortDistanceBF(vector<vector<float>> raw_data, vector<float> vi, int index, int x, int y);
+
+void buildDeltaCompressionIndex(vector<vector<float>> raw_data, int k, vector<vector<partialRangeGraph>> &Gb,
+                                vector<vector<partialRangeGraph>> &Ge);
+
+void ReadMatFromTsv(const string &path, vector<vector<float>> &data,
+                    const int length_limit);
+
+void Split(std::string &s, std::string &delim, std::vector<std::string> *ret);
 
 int main() {
     int k = 20;
-    int N = 200;
+    int N = 100;
 
-    string data_path = "data/siftsmall_base.fvecs";
+    //string data_path = "data/siftsmall_base.fvecs";
+    string data_path = "data/biggraph.tsv";
     vector<vector<float> > raw_data;
     unsigned dim, num;
-    loadData(data_path, raw_data, num, dim);
+
+    //loadData(data_path, raw_data, num, dim);
+    ReadMatFromTsv(data_path, raw_data, N);
     raw_data.resize(N);
 
     cout << "Program Begin. Data size: " << raw_data.size() << " K: " << k << endl;
     vector<vector<naiveGraph>> bruteForceIndex = buildBruteForceIndex(raw_data, k);
-    vector<vector<indexGraph>> compactIndex = buildCompactGraph(raw_data, k);
+    vector<vector<compactGraph>> compactIndex = buildCompactGraph(raw_data, k);
 
     vector<vector<partialRangeGraph>> Gb;
     vector<vector<partialRangeGraph>> Ge;
@@ -105,9 +124,9 @@ int main() {
          << (partialRangeNumber * (8 + 4 * k)) / (1024.0 * 1024.0) << " MiB" << endl;
 
 
-    vector<int> bfknn = buildKNNBruteForce(bruteForceIndex, 5, 100, 27);
-    vector<int> cgknn = buildKNNCompactList(compactIndex, 5, 100, 27);
-    vector<int> prknn = buildKNNPartialRange(raw_data, Gb, Ge, 5, 100, 27, k);
+    vector<int> bfknn = buildKNNBruteForce(bruteForceIndex, 5, 50, 27);
+    vector<int> cgknn = buildKNNCompactList(compactIndex, 5, 50, 27);
+    vector<int> prknn = buildKNNPartialRange(raw_data, Gb, Ge, 5, 50, 27, k);
 
     sort(bfknn.begin(), bfknn.end());
     sort(cgknn.begin(), cgknn.end());
@@ -123,6 +142,67 @@ int main() {
 //        cout << cgknn[i] << "\t" << prknn[i] << endl;
 //    }
     return 0;
+}
+
+
+void ReadMatFromTsv(const string &path, vector<vector<float>> &data, const int length_limit = -1) {
+    ifstream infile;
+    string bline;
+    string delim = "\t";
+    int numCols = 0;
+    infile.open(path, ios::in);
+    getline(infile, bline, '\n');
+    if (getline(infile, bline, '\n')) {
+        vector<string> ret;
+        Split(bline, delim, &ret);
+        numCols = ret.size();
+    }
+    infile.close();
+    cout << "Reading " << path << " ..." << endl;
+    cout << "# of columns: " << numCols << endl;
+
+    int counter = 0;
+    if (length_limit == -1) counter = -9999999;
+    infile.open(path, ios::in);
+    // skip the first line
+    getline(infile, bline, '\n');
+    while (getline(infile, bline, '\n')) {
+        if (counter >= length_limit) break;
+        counter++;
+
+        vector<string> ret;
+        Split(bline, delim, &ret);
+        vector<float> arow(numCols - 1);
+        assert(ret.size() == numCols);
+        for (int i = 0; i < ret.size() - 1; i++) {
+            arow[i] = static_cast<float>(stod(ret[i + 1]));
+        }
+        data.emplace_back(arow);
+    }
+    infile.close();
+    cout << "# of rows: " << data.size() << endl;
+}
+
+void Split(std::string &s, std::string &delim, std::vector<std::string> *ret) {
+    size_t last = 0;
+    size_t index = s.find_first_of(delim, last);
+    while (index != std::string::npos) {
+        ret->push_back(s.substr(last, index - last));
+        last = index + 1;
+        index = s.find_first_of(delim, last);
+    }
+    if (index - last > 0) {
+        ret->push_back(s.substr(last, index - last));
+    }
+}
+
+int YT8M2Int(const string id) {
+    int res = 0;
+    for (size_t i = 0; i < 4; i++) {
+        res *= 100;
+        res += (int) id[i] - 38;
+    }
+    return res;
 }
 
 
@@ -152,11 +232,11 @@ void loadData(const string &filename, vector<vector<float> > &raw_data, unsigned
 }
 
 
-vector<vector<indexGraph>> buildCompactGraph(vector<vector<float>> raw_data, int k) {
+vector<vector<compactGraph>> buildCompactGraph(vector<vector<float>> raw_data, int k) {
 
     cout << "Indexing using Compact Graph Approach..." << endl;
     int indicator = raw_data.size() / 100;
-    vector<vector<indexGraph>> G;
+    vector<vector<compactGraph>> G;
     int window;
 
     for (int i = 0; i < raw_data.size(); i++) {
@@ -169,7 +249,7 @@ vector<vector<indexGraph>> buildCompactGraph(vector<vector<float>> raw_data, int
         vector<int> L;
         vector<int> R;
         vector<int> LR;
-        vector<indexGraph> tempG;
+        vector<compactGraph> tempG;
 
         int prevLMin = 0;
         int LMin = 0;
@@ -192,7 +272,7 @@ vector<vector<indexGraph>> buildCompactGraph(vector<vector<float>> raw_data, int
                     if (L.size() + R.size() >= k && L.size() != 0 && R.size() != 0) {
                         LR = mergeLR(L, R, LR);
                         if (LR.size() == k) {
-                            indexGraph graph = *new indexGraph();
+                            compactGraph graph = *new compactGraph();
 
                             graph.bl = prevLMin;
                             graph.br = LR[0];
@@ -204,7 +284,7 @@ vector<vector<indexGraph>> buildCompactGraph(vector<vector<float>> raw_data, int
                             tempG.push_back(graph);
                         } else {
                             if (L.size() < k) {
-                                indexGraph graph = *new indexGraph();
+                                compactGraph graph = *new compactGraph();
 
                                 graph.bl = prevLMin;
                                 graph.br = LR[0];
@@ -218,7 +298,7 @@ vector<vector<indexGraph>> buildCompactGraph(vector<vector<float>> raw_data, int
                                 window = 0;
 
                                 while (window + k < LR.size()) {
-                                    indexGraph graph = *new indexGraph();
+                                    compactGraph graph = *new compactGraph();
 
                                     graph.bl = LR[window];
                                     graph.br = LR[window + 1];
@@ -231,7 +311,7 @@ vector<vector<indexGraph>> buildCompactGraph(vector<vector<float>> raw_data, int
                                     window++;
                                 }
 
-                                graph = *new indexGraph();;
+                                graph = *new compactGraph();;
 
                                 graph.bl = LR[window];
                                 graph.br = LR[window + 1];
@@ -244,7 +324,7 @@ vector<vector<indexGraph>> buildCompactGraph(vector<vector<float>> raw_data, int
                                 tempG.push_back(graph);
 
                             } else if (L.size() == k) {
-                                indexGraph graph = *new indexGraph();;
+                                compactGraph graph = *new compactGraph();;
 
                                 graph.bl = prevLMin;
                                 graph.br = LR[0];
@@ -259,7 +339,7 @@ vector<vector<indexGraph>> buildCompactGraph(vector<vector<float>> raw_data, int
 
                                 window = 0;
                                 while (window + k < LR.size()) {
-                                    graph = *new indexGraph();;
+                                    graph = *new compactGraph();;
 
                                     graph.bl = LR[window];
                                     graph.br = LR[window + 1];
@@ -273,7 +353,7 @@ vector<vector<indexGraph>> buildCompactGraph(vector<vector<float>> raw_data, int
                                     window++;
                                 }
 
-                                graph = *new indexGraph();;
+                                graph = *new compactGraph();;
 
                                 graph.bl = LR[window];
                                 graph.br = LR[window + 1];
@@ -303,7 +383,7 @@ vector<vector<indexGraph>> buildCompactGraph(vector<vector<float>> raw_data, int
                     if (L.size() + R.size() >= k && L.size() != 0 && R.size() != 0) {
                         LR = mergeLR(L, R, LR);
                         if (LR.size() == k) {
-                            indexGraph graph = *new indexGraph();
+                            compactGraph graph = *new compactGraph();
 
                             graph.bl = prevLMin;
                             graph.br = LR[0];
@@ -315,7 +395,7 @@ vector<vector<indexGraph>> buildCompactGraph(vector<vector<float>> raw_data, int
                             tempG.push_back(graph);
                         } else {
                             if (R.size() < k) {
-                                indexGraph graph = *new indexGraph();
+                                compactGraph graph = *new compactGraph();
 
                                 graph.bl = prevLMin;
                                 graph.br = LR[0];
@@ -328,7 +408,7 @@ vector<vector<indexGraph>> buildCompactGraph(vector<vector<float>> raw_data, int
 
                                 window = 0;
                                 while (window + k < LR.size()) {
-                                    indexGraph graph = *new indexGraph();
+                                    compactGraph graph = *new compactGraph();
 
                                     graph.bl = LR[window];
                                     graph.br = LR[window + 1];
@@ -341,7 +421,7 @@ vector<vector<indexGraph>> buildCompactGraph(vector<vector<float>> raw_data, int
                                     window++;
                                 }
 
-                                graph = *new indexGraph();;
+                                graph = *new compactGraph();;
 
                                 graph.bl = LR[window];
                                 graph.br = LR[window + 1];
@@ -354,7 +434,7 @@ vector<vector<indexGraph>> buildCompactGraph(vector<vector<float>> raw_data, int
                                 tempG.push_back(graph);
                             } else if (R.size() == k) {
 //                            if (L.size() == 0)
-                                indexGraph graph = *new indexGraph();
+                                compactGraph graph = *new compactGraph();
 
                                 graph.bl = prevLMin;
                                 graph.br = LR[0];
@@ -368,7 +448,7 @@ vector<vector<indexGraph>> buildCompactGraph(vector<vector<float>> raw_data, int
 
                                 window = 0;
                                 while (window + k < LR.size()) {
-                                    graph = *new indexGraph();;
+                                    graph = *new compactGraph();;
 
                                     graph.bl = LR[window];
                                     graph.br = LR[window + 1];
@@ -382,7 +462,7 @@ vector<vector<indexGraph>> buildCompactGraph(vector<vector<float>> raw_data, int
                                     window++;
                                 }
 
-                                graph = *new indexGraph();;
+                                graph = *new compactGraph();;
 
                                 //Should be LMax, which is L.size - 1
                                 graph.bl = LR[L.size() - 1] - 1;
@@ -422,7 +502,8 @@ vector<pair<int, float>> calcAndSortDistance(vector<vector<float>> raw_data, vec
     return result;
 }
 
-vector<pair<int, float>> calcAndSortDistanceBF(vector<vector<float>> raw_data, vector<float> vi, int index, int x, int y) {
+vector<pair<int, float>>
+calcAndSortDistanceBF(vector<vector<float>> raw_data, vector<float> vi, int index, int x, int y) {
     vector<pair<int, float>> result;
     for (int i = x; i <= y; i++) {
         if (i != index) {
@@ -439,6 +520,84 @@ vector<pair<int, float>> calcAndSortDistanceBF(vector<vector<float>> raw_data, v
 
 void buildPartialRangeGraph(vector<vector<float>> raw_data, int k, vector<vector<partialRangeGraph>> &Gb,
                             vector<vector<partialRangeGraph>> &Ge) {
+
+    cout << "Indexing using Partial Range Approach..." << endl;
+    int indicator = raw_data.size() / 100;
+
+    for (int i = 0; i < raw_data.size(); i++) {
+        if (i % indicator == 0) {
+            cout << "#";
+        }
+        vector<pair<int, float>> sortedDistancePairs = calcAndSortDistance(raw_data, raw_data[i], i);
+        // declare and initialize L and R
+        vector<int> L;
+        vector<int> R;
+
+        int prevLMin = 0;
+        int LMin = 0;
+        int prevRMax = raw_data.size() + 1;
+        int RMax = raw_data.size() + 1;
+        L.push_back(LMin);
+        R.push_back(RMax);
+
+        vector<partialRangeGraph> tempGb;
+        vector<partialRangeGraph> tempGe;
+
+        for (int j = 0; j < sortedDistancePairs.size(); j++) {
+            int j_val = sortedDistancePairs[j].first;
+            if (j_val < i) {
+                if (j_val > LMin) {
+                    // insert j into L
+                    L.push_back(j_val);
+                    sort(L.begin(), L.end());
+                    if (L.size() == k + 1) {
+                        prevLMin = L[0];
+                        L.erase(L.begin());
+                        LMin = L[0];
+
+                        partialRangeGraph graph = *new partialRangeGraph();
+
+                        graph.bl = prevLMin;
+                        graph.br = L[0];
+                        for (int z = 0; z < k; z++) {
+                            graph.C.push_back(L[z]);
+                        }
+                        tempGb.push_back(graph);
+                    }
+                }
+
+            } else if (j_val > i) {
+                if (j_val < RMax) {
+                    // insert j into R
+                    R.push_back(j_val);
+                    sort(R.begin(), R.end());
+                    if (R.size() == k + 1) {
+                        prevRMax = R[R.size() - 1];
+                        R.erase(R.end());
+                        RMax = R[R.size() - 1];
+
+                        partialRangeGraph graph = *new partialRangeGraph();
+
+                        graph.bl = R[R.size() - 1];
+                        graph.br = prevRMax;
+                        for (int z = 0; z < k; z++) {
+                            graph.C.push_back(R[z]);
+                        }
+                        tempGe.push_back(graph);
+                    }
+
+                }
+            }
+        }
+        Gb.push_back(tempGb);
+        Ge.push_back(tempGe);
+    }
+    cout << "\nFinished..." << endl;
+}
+
+
+void buildDeltaCompressionIndex(vector<vector<float>> raw_data, int k, vector<vector<partialRangeGraph>> &Gb,
+                                vector<vector<partialRangeGraph>> &Ge) {
 
     cout << "Indexing using Partial Range Approach..." << endl;
     int indicator = raw_data.size() / 100;
@@ -590,7 +749,7 @@ vector<int> mergeLR(vector<int> L, vector<int> R, vector<int> LR) {
     return LR;
 }
 
-long countGraphSize(vector<vector<indexGraph>> G) {
+long countGraphSize(vector<vector<compactGraph>> G) {
     long result = 0;
     for (int i = 0; i < G.size(); i++) {
         result += G[i].size();
@@ -649,7 +808,7 @@ vector<int> buildKNNPartialRange(vector<vector<float>> rawData, vector<vector<pa
     return result;
 }
 
-vector<int> buildKNNCompactList(vector<vector<indexGraph>> G, int x, int y, int i) {
+vector<int> buildKNNCompactList(vector<vector<compactGraph>> G, int x, int y, int i) {
     vector<int> result;
     if (G[i].size() == 0) {
         return result;
