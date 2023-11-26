@@ -1,6 +1,6 @@
 # COP-5725: Database Systems - Fall 2023
 
-## Term Project: Jackie Ye (ZY22B), Yichao Wang ()
+## Term Project: Jackie Ye (ZY22B), Yichao Wang (YW20BP)
 
 ### Implementation of paper: ARKGraph: All-Range Approximate K-Nearest-Neighbor Graph
 
