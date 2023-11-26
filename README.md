@@ -18,7 +18,7 @@
 
 ### All datasets raw files should be placed under ***cmake-build-debug/data/***
 
-### DEEP10M:
+### DEEP10M: https://fsu-my.sharepoint.com/:u:/g/personal/zy22b_fsu_edu/Eekl0KQuG-pNh66Sa7SWmhoBJMYzO73MI8Q28GXcNcPQQg?e=OOgEs0
 
 ### BigGraph:
 
