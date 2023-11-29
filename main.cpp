@@ -165,13 +165,13 @@ int main() {
     int bruteForceNumber = countBruteForceSize(bruteForceIndex);
     long compactGraphNumber = countGraphSize(compactIndex);
 
-    cout << "Brute Force Index Number: " << bruteForceNumber << "\tTotal Size: "
+    cout << "Brute Force Index Number: " << bruteForceNumber << "\t\tTotal Size: "
          << (bruteForceNumber * (8 + 4 * k)) / (1024.0 * 1024.0) << " MiB" << endl;
-    cout << "Compact Graph Index Number: " << compactGraphNumber << "\tTotal Size: "
+    cout << "Compact Graph Index Number: " << compactGraphNumber << "\t\tTotal Size: "
          << (compactGraphNumber * (16 + 4 * k)) / (1024.0 * 1024.0) << " MiB" << endl;
-    cout << "Partial Range Index Number: " << partialRangeNumber << "\tTotal Size: "
+    cout << "Partial Range Index Number: " << partialRangeNumber << "\t\tTotal Size: "
          << (partialRangeNumber * (8 + 4 * k)) / (1024.0 * 1024.0) << " MiB" << endl;
-    cout << "Delta Compression Index Number: " << deltaCompressionNumber << "\tTotal Size: "
+    cout << "Delta Compression Index Number: " << deltaCompressionNumber << "\t\tTotal Size: "
          << (deltaCompressionNumber * 8 / (1024.0 * 1024.0)) << " MiB" << endl;
 
     int indexForKNN;
@@ -185,7 +185,7 @@ int main() {
     cin >> rangeEnd;
 
     if (rangeEnd - rangeStart < k) {
-        cout << "Error: range is less than k" << endl;
+        cout << "Error: range is less than k... Program Aborted..." << endl;
         return -1;
     }
 
@@ -633,7 +633,6 @@ void buildPartialRangeGraph(vector<vector<float>> raw_data, int k, vector<vector
                 if (j_val < RMax) {
                     // insert j into R
                     R.push_back(j_val);
-                    sort(R.begin(), R.end());
                     if (R.size() == k + 1) {
                         prevRMax = R[R.size() - 1];
                         R.erase(R.end());
