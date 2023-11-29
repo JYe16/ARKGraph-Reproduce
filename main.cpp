@@ -1,7 +1,5 @@
 //
 // Created by Jackie on 10/4/2023.
-// 数据读取: vector<vector<float>>
-// ifstream很可能不行
 
 #include <vector>
 #include "iostream"
@@ -72,8 +70,11 @@ vector<int> buildKNNBruteForce(vector<vector<naiveGraph>> G, int x, int y, int i
 vector<pair<int, float>>
 calcAndSortDistanceBF(vector<vector<float>> raw_data, vector<float> vi, int index, int x, int y);
 
-void buildDeltaCompressionIndex(vector<vector<float>> raw_data, int k, vector<vector<partialRangeGraph>> &Gb,
-                                vector<vector<partialRangeGraph>> &Ge);
+void buildDeltaCompressionIndex(vector<vector<float>> raw_data, int k, vector<vector<deltaCompressionGraph>> &dGb,
+                                vector<vector<deltaCompressionGraph>> &dGe);
+
+vector<int> buildKNNDeltaCompression(vector<vector<float>> rawData, vector<vector<deltaCompressionGraph>> dGb,
+                                     vector<vector<deltaCompressionGraph>> dGe, int x, int y, int i, int k);
 
 /*
  *
@@ -88,16 +89,43 @@ void ReadMatFromTsv(const string &path, vector<vector<float>> &data, const int l
 void Split(std::string &s, std::string &delim, std::vector<std::string> *ret);
 
 int main() {
-    int k = 5;
-    int N = 50;
-
-    //string data_path = "data/siftsmall_base.fvecs";g
-    string data_path = "data/biggraph.tsv";
+    char dataset;
+    int k, N;
+    string data_path;
     vector<vector<float> > raw_data;
     unsigned dim, num;
 
-    //loadData(data_path, raw_data, num, dim);
-    ReadMatFromTsv(data_path, raw_data, N);
+    cout << "Program Started... Please enter the dataset you would like to index: 'b' for BigGraph, 'd' for DEEP10M: " << endl;
+    cin >> dataset;
+    cout << "Please enter the value of N (total number of data): " << endl;
+    cin >> N;
+    cout << "Please enter the value of k (number of nearest neighbors): " << endl;
+    cin >> k;
+
+    if (dataset == 'b') {
+        data_path = "data/biggraph.tsv";
+        ReadMatFromTsv(data_path, raw_data, N);
+    } else if (dataset == 'd') {
+        data_path = "data/deep10M.fvecs";
+        loadData(data_path, raw_data, num, dim);
+    } else {
+        cout << "Invalid argument: dataset. Please try again." << endl;
+        return -1;
+    }
+
+    if (N > 1000) {
+        char cont;
+        cout << "Warning: N is greater than 1000. The indexing time of brute force approach could be prohibitively long..." << endl;
+        cout << "Continue? [Y/N]: ";
+
+        cin >> cont;
+
+        if (cont == 'N') {
+            cout << "Program Aborted..." << endl;
+            return 1;
+        }
+    }
+
     raw_data.resize(N);
 
     cout << "Program Begin. Data size: " << raw_data.size() << " K: " << k << endl;
@@ -118,6 +146,20 @@ int main() {
         partialRangeNumber += Ge[i].size();
     }
 
+    vector<vector<deltaCompressionGraph>> dGb;
+    vector<vector<deltaCompressionGraph>> dGe;
+
+    buildDeltaCompressionIndex(raw_data, k, dGb, dGe);
+    int deltaCompressionNumber = 0;
+
+    for (int i = 0; i < Gb.size(); i++) {
+        deltaCompressionNumber += dGb[i].size();
+    }
+
+    for (int i = 0; i < Ge.size(); i++) {
+        deltaCompressionNumber += dGe[i].size();
+    }
+
     cout << "Program Finished... Calculating Stats..." << endl;
 
     int bruteForceNumber = countBruteForceSize(bruteForceIndex);
@@ -129,19 +171,37 @@ int main() {
          << (compactGraphNumber * (16 + 4 * k)) / (1024.0 * 1024.0) << " MiB" << endl;
     cout << "Partial Range Index Number: " << partialRangeNumber << "\tTotal Size: "
          << (partialRangeNumber * (8 + 4 * k)) / (1024.0 * 1024.0) << " MiB" << endl;
+    cout << "Delta Compression Index Number: " << deltaCompressionNumber << "\tTotal Size: "
+         << (deltaCompressionNumber * 8 / (1024.0 * 1024.0)) << " MiB" << endl;
 
+    int indexForKNN;
+    int rangeStart;
+    int rangeEnd;
+    cout << "Please enter the vector you would like to generate KNN (from 0 to " << N - 1 << "): " << endl;
+    cin >> indexForKNN;
+    cout << "Please enter the starting index you would like to generate KNN (from 0 to " << N - 1 << "): " << endl;
+    cin >> rangeStart;
+    cout << "Please enter the ending index you would like to generate KNN (from 0 to " << N - 1 << "): " << endl;
+    cin >> rangeEnd;
 
-    vector<int> bfknn = buildKNNBruteForce(bruteForceIndex, 10, 40, 25);
-    vector<int> cgknn = buildKNNCompactList(compactIndex, 10, 40, 25);
-    vector<int> prknn = buildKNNPartialRange(raw_data, Gb, Ge, 10, 40, 25, k);
+    if (rangeEnd - rangeStart < k) {
+        cout << "Error: range is less than k" << endl;
+        return -1;
+    }
+
+    vector<int> bfknn = buildKNNBruteForce(bruteForceIndex, rangeStart, rangeEnd, indexForKNN);
+    vector<int> cgknn = buildKNNCompactList(compactIndex, rangeStart, rangeEnd, indexForKNN);
+    vector<int> prknn = buildKNNPartialRange(raw_data, Gb, Ge, rangeStart, rangeEnd, indexForKNN, k);
+    vector<int> dcknn = buildKNNDeltaCompression(raw_data, dGb, dGe, rangeStart, rangeEnd, indexForKNN, k);
 
     sort(bfknn.begin(), bfknn.end());
     sort(cgknn.begin(), cgknn.end());
     sort(prknn.begin(), prknn.end());
+    sort(dcknn.begin(), dcknn.end());
 
-    cout << "BF\tCG\tPR" << endl;
+    cout << "BF\tCG\tPR\tDC" << endl;
     for (int i = 0; i < k; i++) {
-        cout << bfknn[i] << "\t" << cgknn[i] << "\t" << prknn[i] << endl;
+        cout << bfknn[i] << "\t" << cgknn[i] << "\t" << prknn[i] << "\t" << dcknn[i] << endl;
     }
 
 //    cout << "CG\tPR" << endl;
@@ -229,7 +289,6 @@ void loadData(const string &filename, vector<vector<float> > &raw_data, unsigned
     for (size_t i = 0; i < num; i++) {
         in.seekg(4, std::ios::cur);
         in.read((char *) raw_data[i].data(), dim * 4);
-
     }
     in.close();
 
@@ -600,10 +659,10 @@ void buildPartialRangeGraph(vector<vector<float>> raw_data, int k, vector<vector
 }
 
 
-void buildDeltaCompressionIndex(vector<vector<float>> raw_data, int k, vector<vector<partialRangeGraph>> &Gb,
-                                vector<vector<partialRangeGraph>> &Ge) {
+void buildDeltaCompressionIndex(vector<vector<float>> raw_data, int k, vector<vector<deltaCompressionGraph>> &dGb,
+                                vector<vector<deltaCompressionGraph>> &dGe) {
 
-    cout << "Indexing using Partial Range Approach..." << endl;
+    cout << "Indexing using Delta Compression Approach..." << endl;
     int indicator = raw_data.size() / 10;
 
     for (int i = 0; i < raw_data.size(); i++) {
@@ -622,8 +681,8 @@ void buildDeltaCompressionIndex(vector<vector<float>> raw_data, int k, vector<ve
         L.push_back(LMin);
         R.push_back(RMax);
 
-        vector<partialRangeGraph> tempGb;
-        vector<partialRangeGraph> tempGe;
+        vector<deltaCompressionGraph> tempGb;
+        vector<deltaCompressionGraph> tempGe;
 
         for (int j = 0; j < sortedDistancePairs.size(); j++) {
             int j_val = sortedDistancePairs[j].first;
@@ -637,10 +696,10 @@ void buildDeltaCompressionIndex(vector<vector<float>> raw_data, int k, vector<ve
                         L.erase(L.begin());
                         LMin = L[0];
 
-                        partialRangeGraph graph = *new partialRangeGraph();
+                        deltaCompressionGraph graph = *new deltaCompressionGraph();
 
-                        graph.bl = prevLMin;
-                        graph.br = L[0];
+                        graph.lMin = prevLMin;
+                        graph.j = L[0];
                         for (int z = 0; z < k; z++) {
                             graph.C.push_back(L[z]);
                         }
@@ -658,10 +717,10 @@ void buildDeltaCompressionIndex(vector<vector<float>> raw_data, int k, vector<ve
                         R.erase(R.end());
                         RMax = R[R.size() - 1];
 
-                        partialRangeGraph graph = *new partialRangeGraph();
+                        deltaCompressionGraph graph = *new deltaCompressionGraph();
 
-                        graph.bl = R[R.size() - 1];
-                        graph.br = prevRMax;
+                        graph.lMin = R[R.size() - 1];
+                        graph.j = prevRMax;
                         for (int z = 0; z < k; z++) {
                             graph.C.push_back(R[z]);
                         }
@@ -671,8 +730,8 @@ void buildDeltaCompressionIndex(vector<vector<float>> raw_data, int k, vector<ve
                 }
             }
         }
-        Gb.push_back(tempGb);
-        Ge.push_back(tempGe);
+        dGb.push_back(tempGb);
+        dGe.push_back(tempGe);
     }
     cout << "\nFinished..." << endl;
 }
@@ -834,6 +893,49 @@ vector<int> buildKNNBruteForce(vector<vector<naiveGraph>> G, int x, int y, int i
         if (x == G[i][j].b && y == G[i][j].e) {
             return G[i][j].C;
         }
+    }
+    return result;
+}
+
+vector<int> buildKNNDeltaCompression(vector<vector<float>> rawData, vector<vector<deltaCompressionGraph>> dGb,
+                                 vector<vector<deltaCompressionGraph>> dGe, int x, int y, int i, int k) {
+    vector<int> result;
+    vector<int> tempNN;
+    vector<float> vi = rawData[i];
+    vector<pair<int, float>> distancePairs;
+
+    if (dGb[i].size() != 0) {
+        for (int j = 0; j < dGb[i].size(); j++) {
+            if (x > dGb[i][j].lMin && x <= dGb[i][j].j) {
+                for (int z = 0; z < dGb[i][j].C.size(); z++) {
+                    tempNN.push_back(dGb[i][j].C[z]);
+                }
+                break;
+            }
+        }
+    }
+
+    if (dGe.size() != 0) {
+        for (int j = 0; j < dGe[i].size(); j++) {
+            if (y >= dGe[i][j].lMin && y < dGe[i][j].j) {
+                for (int z = 0; z < dGe[i][j].C.size(); z++) {
+                    tempNN.push_back(dGe[i][j].C[z]);
+                }
+                break;
+            }
+        }
+    }
+
+    for (int j = 0; j < tempNN.size(); j++) {
+        pair<int, float> tempPair;
+        tempPair.first = tempNN[j];
+        tempPair.second = calcEuclideanDistance(vi, rawData[tempNN[j]]);
+        distancePairs.push_back(tempPair);
+    }
+    sort(distancePairs.begin(), distancePairs.end(), distanceComparison);
+
+    for (int j = 0; j < k; j++) {
+        result.push_back(distancePairs[j].first);
     }
     return result;
 }
