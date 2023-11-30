@@ -113,10 +113,10 @@ int main() {
         return -1;
     }
 
-    if (N > 1000) {
+    if (N > 200) {
         char cont;
-        cout << "Warning: N is greater than 1000. The indexing time of brute force approach could be prohibitively long..." << endl;
-        cout << "Continue? [Y/N]: ";
+        cout << "Warning: N is greater than 200. The indexing time of brute force approach could be prohibitively long..." << endl;
+        cout << "Continue? [Y/N]: " << endl;
 
         cin >> cont;
 
