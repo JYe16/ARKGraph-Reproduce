@@ -633,6 +633,7 @@ void buildPartialRangeGraph(vector<vector<float>> raw_data, int k, vector<vector
                 if (j_val < RMax) {
                     // insert j into R
                     R.push_back(j_val);
+                    sort(R.begin(), R.end());
                     if (R.size() == k + 1) {
                         prevRMax = R[R.size() - 1];
                         R.erase(R.end());
