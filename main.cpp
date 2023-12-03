@@ -174,34 +174,40 @@ int main() {
     cout << "Delta Compression Index Number: " << deltaCompressionNumber << "\t\tTotal Size: "
          << (deltaCompressionNumber * 8 / (1024.0 * 1024.0)) << " MiB" << endl;
 
-    int indexForKNN;
-    int rangeStart;
-    int rangeEnd;
-    cout << "Please enter the vector you would like to generate KNN (from 0 to " << N - 1 << "): " << endl;
-    cin >> indexForKNN;
-    cout << "Please enter the starting index you would like to generate KNN (from 0 to " << N - 1 << "): " << endl;
-    cin >> rangeStart;
-    cout << "Please enter the ending index you would like to generate KNN (from 0 to " << N - 1 << "): " << endl;
-    cin >> rangeEnd;
+    int loop = 1;
 
-    if (rangeEnd - rangeStart < k) {
-        cout << "Error: range is less than k... Program Aborted..." << endl;
-        return -1;
-    }
+    while(loop==1) {
+        int indexForKNN;
+        int rangeStart;
+        int rangeEnd;
+        cout << "Please enter the vector you would like to generate KNN (from 0 to " << N - 1 << "): " << endl;
+        cin >> indexForKNN;
+        cout << "Please enter the starting index you would like to generate KNN (from 0 to " << N - 1 << "): " << endl;
+        cin >> rangeStart;
+        cout << "Please enter the ending index you would like to generate KNN (from 0 to " << N - 1 << "): " << endl;
+        cin >> rangeEnd;
 
-    vector<int> bfknn = buildKNNBruteForce(bruteForceIndex, rangeStart, rangeEnd, indexForKNN);
-    vector<int> cgknn = buildKNNCompactList(compactIndex, rangeStart, rangeEnd, indexForKNN);
-    vector<int> prknn = buildKNNPartialRange(raw_data, Gb, Ge, rangeStart, rangeEnd, indexForKNN, k);
-    vector<int> dcknn = buildKNNDeltaCompression(raw_data, dGb, dGe, rangeStart, rangeEnd, indexForKNN, k);
+        if (rangeEnd - rangeStart < k) {
+            cout << "Error: range is less than k... Program Aborted..." << endl;
+            return -1;
+        }
 
-    sort(bfknn.begin(), bfknn.end());
-    sort(cgknn.begin(), cgknn.end());
-    sort(prknn.begin(), prknn.end());
-    sort(dcknn.begin(), dcknn.end());
+        vector<int> bfknn = buildKNNBruteForce(bruteForceIndex, rangeStart, rangeEnd, indexForKNN);
+        vector<int> cgknn = buildKNNCompactList(compactIndex, rangeStart, rangeEnd, indexForKNN);
+        vector<int> prknn = buildKNNPartialRange(raw_data, Gb, Ge, rangeStart, rangeEnd, indexForKNN, k);
+        vector<int> dcknn = buildKNNDeltaCompression(raw_data, dGb, dGe, rangeStart, rangeEnd, indexForKNN, k);
 
-    cout << "BF\tCG\tPR\tDC" << endl;
-    for (int i = 0; i < k; i++) {
-        cout << bfknn[i] << "\t" << cgknn[i] << "\t" << prknn[i] << "\t" << dcknn[i] << endl;
+        sort(bfknn.begin(), bfknn.end());
+        sort(cgknn.begin(), cgknn.end());
+        sort(prknn.begin(), prknn.end());
+        sort(dcknn.begin(), dcknn.end());
+
+        cout << "BF\tCG\tPR\tDC" << endl;
+        for (int i = 0; i < k; i++) {
+            cout << bfknn[i] << "\t" << cgknn[i] << "\t" << prknn[i] << "\t" << dcknn[i] << endl;
+        }
+        cout << "Continue or not (1 or 0)" << endl;
+        cin >> loop;
     }
 
 //    cout << "CG\tPR" << endl;
