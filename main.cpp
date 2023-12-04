@@ -8,6 +8,7 @@
 #include <cmath>
 #include <algorithm>
 #include <assert.h>
+#include <ctime>
 
 using namespace std;
 
@@ -129,13 +130,22 @@ int main() {
     raw_data.resize(N);
 
     cout << "Program Begin. Data size: " << raw_data.size() << " K: " << k << endl;
+    clock_t startBF = clock();
     vector<vector<naiveGraph>> bruteForceIndex = buildBruteForceIndex(raw_data, k);
+    clock_t endBF   = clock();
+    double BFtime = (double)(endBF - startBF) / CLOCKS_PER_SEC;
+
+    clock_t startCP = clock();
     vector<vector<compactGraph>> compactIndex = buildCompactGraph(raw_data, k);
+    clock_t endCP   = clock();
+    double CPtime = (double)(endCP - startCP) / CLOCKS_PER_SEC;
 
     vector<vector<partialRangeGraph>> Gb;
     vector<vector<partialRangeGraph>> Ge;
-
+    clock_t startPR = clock();
     buildPartialRangeGraph(raw_data, k, Gb, Ge);
+    clock_t endPR   = clock();
+    double PRtime = (double)(endPR - startPR) / CLOCKS_PER_SEC;
     int partialRangeNumber = 0;
 
     for (int i = 0; i < Gb.size(); i++) {
@@ -149,7 +159,10 @@ int main() {
     vector<vector<deltaCompressionGraph>> dGb;
     vector<vector<deltaCompressionGraph>> dGe;
 
+    clock_t startDC = clock();
     buildDeltaCompressionIndex(raw_data, k, dGb, dGe);
+    clock_t endDC   = clock();
+    double DCtime = (double)(endDC - startDC) / CLOCKS_PER_SEC;
     int deltaCompressionNumber = 0;
 
     for (int i = 0; i < Gb.size(); i++) {
@@ -166,13 +179,13 @@ int main() {
     long compactGraphNumber = countGraphSize(compactIndex);
 
     cout << "Brute Force Index Number: " << bruteForceNumber << "\t\tTotal Size: "
-         << (bruteForceNumber * (8 + 4 * k)) / (1024.0 * 1024.0) << " MiB" << endl;
+         << (bruteForceNumber * (8 + 4 * k)) / (1024.0 * 1024.0) << " MiB" << "\t\tBrute Force Index time: " << BFtime << " s" << endl;
     cout << "Compact Graph Index Number: " << compactGraphNumber << "\t\tTotal Size: "
-         << (compactGraphNumber * (16 + 4 * k)) / (1024.0 * 1024.0) << " MiB" << endl;
+         << (compactGraphNumber * (16 + 4 * k)) / (1024.0 * 1024.0) << " MiB" << "\t\tCompact Graph Index time: " << CPtime << " s" << endl;
     cout << "Partial Range Index Number: " << partialRangeNumber << "\t\tTotal Size: "
-         << (partialRangeNumber * (8 + 4 * k)) / (1024.0 * 1024.0) << " MiB" << endl;
+         << (partialRangeNumber * (8 + 4 * k)) / (1024.0 * 1024.0) << " MiB" << "\t\tPartial Range Index time: " << PRtime << " s" << endl;
     cout << "Delta Compression Index Number: " << deltaCompressionNumber << "\t\tTotal Size: "
-         << (deltaCompressionNumber * 8 / (1024.0 * 1024.0)) << " MiB" << endl;
+         << (deltaCompressionNumber * 8 / (1024.0 * 1024.0)) << " MiB" << "\t\tDelta Compression Index time: " << DCtime << " s" << endl;
 
     int loop = 1;
 
