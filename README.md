@@ -26,4 +26,4 @@
 
 ## Additional Information
 
-### Since the original approach has leveraged parallels computing (OpenMP) to increase the efficiency, they are able to evaluate the approach using the whole dataset. However, due to the limitation of computing resources, it would be very likely to take a prohibitively long time to index the whole dataset on a commercial PC. Therefore, we recommend to test our code by indexing less than 1000 of N.
+### Since the original approach has leveraged parallels computing (OpenMP) to increase the efficiency, they are able to evaluate the approach using the whole dataset. However, due to the limitation of computing resources, it would be very likely to take a prohibitively long time to index the whole dataset on a commercial PC. Therefore, we recommend to test our code by indexing less than 100 of N.
